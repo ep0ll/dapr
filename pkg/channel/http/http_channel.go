@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -191,11 +192,15 @@ func (h *Channel) InvokeMethod(ctx context.Context, req *invokev1.InvokeMethodRe
 
 // TriggerJob sends the triggered job back to the app via HTTP.
 func (h *Channel) TriggerJob(ctx context.Context, name string, data *anypb.Any) (*invokev1.InvokeMethodResponse, error) {
-	// passed in from the app
-	return h.sendJob(ctx, name, data)
+	return h.TriggerJobWithRoute(ctx, name, "", data)
 }
 
-func (h *Channel) constructJobRequest(ctx context.Context, name string, data *anypb.Any) (*http.Request, error) {
+// TriggerJobWithRoute sends a job to the app using an optional callback route.
+func (h *Channel) TriggerJobWithRoute(ctx context.Context, name, routePath string, data *anypb.Any) (*invokev1.InvokeMethodResponse, error) {
+	return h.sendJob(ctx, name, routePath, data)
+}
+
+func (h *Channel) constructJobRequest(ctx context.Context, name, routePath string, data *anypb.Any) (*http.Request, error) {
 	var value []byte
 	switch data.GetTypeUrl() {
 	case "type.googleapis.com/google.protobuf.Value":
@@ -214,7 +219,20 @@ func (h *Channel) constructJobRequest(ctx context.Context, name string, data *an
 		value = bytes.TrimSpace(data.GetValue())
 	}
 
-	uri := h.baseAddress + "/job/" + strings.TrimPrefix(name, "/")
+	var uri string
+	if routePath == "" {
+		// Preserve the existing job-name routing behavior when no override is set.
+		uri = h.baseAddress + "/job/" + strings.TrimPrefix(name, "/")
+	} else {
+		if err := channel.ValidateJobRoutePath(routePath); err != nil {
+			return nil, err
+		}
+		segments := strings.Split(routePath, "/")
+		for i := range segments {
+			segments[i] = url.PathEscape(segments[i])
+		}
+		uri = h.baseAddress + "/job/" + strings.Join(segments, "/")
+	}
 	channelReq, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, bytes.NewReader(value))
 	if err != nil {
 		return nil, err
@@ -243,8 +261,8 @@ func (h *Channel) constructJobRequest(ctx context.Context, name string, data *an
 	return channelReq, nil
 }
 
-func (h *Channel) sendJob(ctx context.Context, name string, data *anypb.Any) (*invokev1.InvokeMethodResponse, error) {
-	channelReq, err := h.constructJobRequest(ctx, name, data)
+func (h *Channel) sendJob(ctx context.Context, name, routePath string, data *anypb.Any) (*invokev1.InvokeMethodResponse, error) {
+	channelReq, err := h.constructJobRequest(ctx, name, routePath, data)
 	if err != nil {
 		return nil, err
 	}

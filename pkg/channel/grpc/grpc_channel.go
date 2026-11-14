@@ -29,6 +29,7 @@ import (
 
 	"github.com/dapr/dapr/pkg/actors/callbackstream"
 	"github.com/dapr/dapr/pkg/apphealth"
+	"github.com/dapr/dapr/pkg/channel"
 	"github.com/dapr/dapr/pkg/config"
 	"github.com/dapr/dapr/pkg/messages"
 	invokev1 "github.com/dapr/dapr/pkg/messaging/v1"
@@ -119,14 +120,26 @@ func (g *Channel) InvokeMethod(ctx context.Context, req *invokev1.InvokeMethodRe
 
 // TriggerJob sends the triggered job to the app via gRPC.
 func (g *Channel) TriggerJob(ctx context.Context, name string, data *anypb.Any) (*invokev1.InvokeMethodResponse, error) {
+	return g.TriggerJobWithRoute(ctx, name, "", data)
+}
+
+// TriggerJobWithRoute sends a job to the app via gRPC using an optional callback route.
+func (g *Channel) TriggerJobWithRoute(ctx context.Context, name, routePath string, data *anypb.Any) (*invokev1.InvokeMethodResponse, error) {
 	if g.appHealth != nil && !g.appHealth.GetStatus().IsHealthy {
 		return nil, status.Error(codes.Internal, messages.ErrAppUnhealthy)
 	}
 
-	return g.sendJob(ctx, name, data)
+	return g.sendJob(ctx, name, routePath, data)
 }
 
-func (g *Channel) sendJob(ctx context.Context, name string, data *anypb.Any) (*invokev1.InvokeMethodResponse, error) {
+func (g *Channel) sendJob(ctx context.Context, name, routePath string, data *anypb.Any) (*invokev1.InvokeMethodResponse, error) {
+	if routePath != "" {
+		if err := channel.ValidateJobRoutePath(routePath); err != nil {
+			return nil, err
+		}
+	} else {
+		routePath = name
+	}
 	if g.ch != nil {
 		// Acquiring the max-concurrency slot must respect cancellation: a
 		// caller whose context is already dead would otherwise queue on the
@@ -156,7 +169,7 @@ func (g *Channel) sendJob(ctx context.Context, name string, data *anypb.Any) (*i
 	req := &runtimev1pb.JobEventRequest{
 		Name:          name,
 		Data:          data,
-		Method:        "job/" + name,
+		Method:        "job/" + routePath,
 		ContentType:   data.GetTypeUrl(),
 		HttpExtension: &commonv1pb.HTTPExtension{Verb: commonv1pb.HTTPExtension_POST},
 	}

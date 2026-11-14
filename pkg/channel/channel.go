@@ -30,6 +30,12 @@ const (
 )
 
 // AppChannel is an abstraction over communications with user code.
+// JobRouteTriggerer is implemented by app channels that support custom job callback paths.
+// It is optional so existing AppChannel implementations remain source-compatible.
+type JobRouteTriggerer interface {
+	TriggerJobWithRoute(ctx context.Context, name, routePath string, data *anypb.Any) (*invokev1.InvokeMethodResponse, error)
+}
+
 type AppChannel interface {
 	GetAppConfig(ctx context.Context, appID string) (*config.ApplicationConfig, error)
 	InvokeMethod(ctx context.Context, req *invokev1.InvokeMethodRequest, appID string) (*invokev1.InvokeMethodResponse, error)

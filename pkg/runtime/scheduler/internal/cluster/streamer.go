@@ -29,7 +29,9 @@ import (
 	"github.com/dapr/dapr/pkg/actors/api"
 	actorerrors "github.com/dapr/dapr/pkg/actors/errors"
 	"github.com/dapr/dapr/pkg/actors/router"
+	"github.com/dapr/dapr/pkg/channel"
 	diag "github.com/dapr/dapr/pkg/diagnostics"
+	invokev1 "github.com/dapr/dapr/pkg/messaging/v1"
 	schedulerv1pb "github.com/dapr/dapr/pkg/proto/scheduler/v1"
 	"github.com/dapr/dapr/pkg/runtime/channels"
 	"github.com/dapr/dapr/pkg/runtime/wfengine"
@@ -131,7 +133,15 @@ func (s *streamer) handleJob(ctx context.Context, job *schedulerv1pb.WatchJobsRe
 
 	switch t := meta.GetTarget().GetType().(type) {
 	case *schedulerv1pb.JobTargetMetadata_Job:
-		err := s.invokeApp(ctx, job)
+		if t == nil || t.Job == nil {
+			log.Errorf("received scheduled job '%s' with invalid job target metadata, rejecting", job.GetName())
+			return schedulerv1pb.WatchJobsRequestResultStatus_FAILED
+		}
+		if err := channel.ValidateJobRoutePath(t.Job.GetOverrideRoutePath()); err != nil {
+			log.Errorf("received scheduled job '%s' with invalid override route path, rejecting: %s", job.GetName(), err)
+			return schedulerv1pb.WatchJobsRequestResultStatus_FAILED
+		}
+		err := s.invokeApp(ctx, job, t.Job)
 		if err != nil {
 			log.Errorf("failed to invoke schedule app job: %s", err)
 			return schedulerv1pb.WatchJobsRequestResultStatus_FAILED
@@ -197,7 +207,7 @@ func (s *streamer) handleJob(ctx context.Context, job *schedulerv1pb.WatchJobsRe
 }
 
 // invokeApp calls the local app with the given job data.
-func (s *streamer) invokeApp(ctx context.Context, job *schedulerv1pb.WatchJobsResponse) error {
+func (s *streamer) invokeApp(ctx context.Context, job *schedulerv1pb.WatchJobsResponse, target *schedulerv1pb.TargetJob) error {
 	appChannel := s.channels.AppChannel()
 	if appChannel == nil {
 		return errors.New("received job, but app channel not initialized")
@@ -205,7 +215,17 @@ func (s *streamer) invokeApp(ctx context.Context, job *schedulerv1pb.WatchJobsRe
 
 	start := time.Now()
 
-	response, err := appChannel.TriggerJob(ctx, job.GetName(), job.GetData())
+	routePath := target.GetOverrideRoutePath()
+	var response *invokev1.InvokeMethodResponse
+	var err error
+	if routeChannel, ok := appChannel.(channel.JobRouteTriggerer); ok {
+		response, err = routeChannel.TriggerJobWithRoute(ctx, job.GetName(), routePath, job.GetData())
+	} else if routePath == "" {
+		// Older/custom app channels retain the existing name-based delivery behavior.
+		response, err = appChannel.TriggerJob(ctx, job.GetName(), job.GetData())
+	} else {
+		return fmt.Errorf("app channel does not support custom job callback routes")
+	}
 	if err != nil {
 		return fmt.Errorf("error returned from app channel while sending triggered job to app: %w", err)
 	}

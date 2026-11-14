@@ -19,9 +19,12 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	apierrors "github.com/dapr/dapr/pkg/api/errors"
+	appchannel "github.com/dapr/dapr/pkg/channel"
 	"github.com/dapr/dapr/pkg/messages/errorcodes"
 	internalsv1pb "github.com/dapr/dapr/pkg/proto/internals/v1"
 	runtimev1pb "github.com/dapr/dapr/pkg/proto/runtime/v1"
@@ -59,7 +62,8 @@ func (a *Universal) ScheduleJobAlpha1HTTP(ctx context.Context, job *internalsv1p
 			DueTime:       job.DueTime,
 			Ttl:           job.Ttl,
 			Data:          data,
-			FailurePolicy: job.GetFailurePolicy(),
+			FailurePolicy:     job.GetFailurePolicy(),
+			OverrideRoutePath: job.OverrideRoutePath,
 		},
 		Overwrite: job.GetOverwrite(),
 	})
@@ -83,6 +87,10 @@ func (a *Universal) scheduleJob(ctx context.Context, jobRequest *runtimev1pb.Sch
 		return &runtimev1pb.ScheduleJobResponse{}, apierrors.Empty("Schedule", errMetadata, errorcodes.SchedulerScheduleEmpty)
 	}
 
+	if err := appchannel.ValidateJobRoutePath(job.GetOverrideRoutePath()); err != nil {
+		return &runtimev1pb.ScheduleJobResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	internalScheduleJobReq := &schedulerv1pb.ScheduleJobRequest{
 		Name: job.GetName(),
 		Metadata: &schedulerv1pb.JobMetadata{
@@ -90,7 +98,9 @@ func (a *Universal) scheduleJob(ctx context.Context, jobRequest *runtimev1pb.Sch
 			Namespace: a.Namespace(),
 			Target: &schedulerv1pb.JobTargetMetadata{
 				Type: &schedulerv1pb.JobTargetMetadata_Job{
-					Job: new(schedulerv1pb.TargetJob),
+					Job: &schedulerv1pb.TargetJob{
+						OverrideRoutePath: job.OverrideRoutePath,
+				},
 				},
 			},
 		},
@@ -203,6 +213,11 @@ func (a *Universal) getJob(ctx context.Context, inReq *runtimev1pb.GetJobRequest
 		return nil, apierrors.SchedulerGetJob(errMetadata, err)
 	}
 
+	var overrideRoutePath *string
+	if routePath := resp.GetMetadata().GetTarget().GetJob().GetOverrideRoutePath(); routePath != "" {
+		overrideRoutePath = &routePath
+	}
+
 	return &runtimev1pb.GetJobResponse{
 		Job: &runtimev1pb.Job{
 			Name:          inReq.GetName(),
@@ -211,7 +226,8 @@ func (a *Universal) getJob(ctx context.Context, inReq *runtimev1pb.GetJobRequest
 			Repeats:       resp.GetJob().Repeats,
 			DueTime:       resp.GetJob().DueTime,
 			Ttl:           resp.GetJob().Ttl,
-			FailurePolicy: resp.GetJob().GetFailurePolicy(),
+			FailurePolicy:     resp.GetJob().GetFailurePolicy(),
+			OverrideRoutePath: overrideRoutePath,
 		},
 	}, nil
 }
@@ -299,6 +315,10 @@ func (a *Universal) listJobs(ctx context.Context, req *runtimev1pb.ListJobsReque
 	jobs := make([]*runtimev1pb.Job, 0, len(resp.GetJobs()))
 	for _, namedJob := range resp.GetJobs() {
 		job := namedJob.GetJob()
+		var overrideRoutePath *string
+		if routePath := namedJob.GetMetadata().GetTarget().GetJob().GetOverrideRoutePath(); routePath != "" {
+			overrideRoutePath = &routePath
+		}
 		//nolint:protogetter
 		jobs = append(jobs, &runtimev1pb.Job{
 			Name:          namedJob.GetName(),
@@ -307,7 +327,8 @@ func (a *Universal) listJobs(ctx context.Context, req *runtimev1pb.ListJobsReque
 			DueTime:       job.DueTime,
 			Ttl:           job.Ttl,
 			Data:          job.Data,
-			FailurePolicy: job.FailurePolicy,
+			FailurePolicy:     job.FailurePolicy,
+			OverrideRoutePath: overrideRoutePath,
 		})
 	}
 

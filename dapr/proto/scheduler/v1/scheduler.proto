@@ -64,7 +64,12 @@ message Job {
 
 // TargetJob is the message used by the daprd sidecar to schedule a job
 // from an App.
-message TargetJob {}
+message TargetJob {
+  // override_route_path optionally overrides the app callback path under /job/.
+  // The job name remains unchanged. If omitted, the job name is used as the path.
+  // The value must be a relative HTTP path with no leading or trailing slash.
+  optional string override_route_path = 1;
+}
 
 // TargetActorReminder is the message used by the daprd sidecar to
 // schedule a job from an Actor Reminder.
@@ -330,6 +335,9 @@ message GetJobRequest {
 message GetJobResponse {
   // The job to be scheduled.
   Job job = 1;
+
+  // The metadata associated with the job, including its target configuration.
+  JobMetadata metadata = 2;
 }
 
 // DeleteJobRequest is the message used by the daprd sidecar to delete or get a job.
