@@ -53,11 +53,6 @@ type GetStateRequest struct {
 	ActorID   string `json:"actorId"`
 	ActorType string `json:"actorType"`
 	Key       string `json:"key"`
-
-	// StrictETag is set only by the public actor state API. Internal actor
-	// consumers continue to receive the ETags used by their existing
-	// concurrency control, independently of the public actor ETag contract.
-	StrictETag bool `json:"-"`
 }
 
 // ActorKey returns the key of the actor for this request.
