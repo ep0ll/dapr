@@ -101,6 +101,7 @@ var (
 	ErrActorStateTransactionSave     = APIError{"error saving actor transaction state: %s", errorcodes.ActorStateTransactionSave, http.StatusInternalServerError, grpcCodes.Internal}
 	ErrActorStateETagMismatch        = APIError{"actor state etag mismatch: %s", errorcodes.ActorStateETagMismatch, http.StatusConflict, grpcCodes.Aborted}
 	ErrActorStateETagInvalid         = APIError{"invalid actor state etag: %s", errorcodes.ActorStateETagInvalid, http.StatusBadRequest, grpcCodes.InvalidArgument}
+	ErrActorStateETagUnsupported     = APIError{"actor state store %q cannot apply conditional transactions atomically", errorcodes.ActorStateETagUnsupported, http.StatusNotImplemented, grpcCodes.FailedPrecondition}
 	ErrActorReminderCreate           = APIError{"error creating actor reminder: %s", errorcodes.ActorReminderCreate, http.StatusInternalServerError, grpcCodes.Internal}
 	ErrActorReminderGet              = APIError{"error getting actor reminder: %s", errorcodes.ActorReminderGet, http.StatusInternalServerError, grpcCodes.Internal}
 	ErrActorReminderDelete           = APIError{"error deleting actor reminder: %s", errorcodes.ActorReminderDelete, http.StatusInternalServerError, grpcCodes.Internal}
