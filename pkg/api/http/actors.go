@@ -371,7 +371,7 @@ func (a *api) onActorStateTransaction(w http.ResponseWriter, r *http.Request) {
 		ActorID:        actorID,
 		ActorType:      actorType,
 		Operations:     ops,
-		FirstWriteETag: true,
+		MapETagErrors: true,
 	}
 
 	state, err := a.universal.ActorState(ctx)
@@ -381,13 +381,7 @@ func (a *api) onActorStateTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnETags := kitstrings.IsTruthy(r.Header.Get(returnETagsHeader))
-	var etags map[string]string
-	if returnETags {
-		etags, err = state.TransactionalStateOperationWithETags(ctx, false, req, true)
-	} else {
-		err = state.TransactionalStateOperation(ctx, false, req, true)
-	}
+	err = state.TransactionalStateOperation(ctx, false, req, true)
 	if err != nil {
 		if errors.As(err, new(messages.APIError)) {
 			respondWithError(w, err)
@@ -401,19 +395,7 @@ func (a *api) onActorStateTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if returnETags {
-		if etags == nil {
-			etags = map[string]string{}
-		}
-		respondWithJSON(w, http.StatusOK, actorStateTransactionResponse{ETags: etags})
-		return
-	}
-
 	respondWithEmpty(w)
-}
-
-type actorStateTransactionResponse struct {
-	ETags map[string]string `json:"etags"`
 }
 
 // actorReminderJSON is the HTTP representation of a reminder, shared by the
@@ -749,7 +731,6 @@ func (a *api) onGetActorState(w http.ResponseWriter, r *http.Request) {
 		ActorType:   actorType,
 		ActorID:     actorID,
 		Key:         key,
-		StrictETag:  true,
 	}, true)
 	if err != nil {
 		if errors.As(err, new(messages.APIError)) {
