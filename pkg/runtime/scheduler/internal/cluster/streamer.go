@@ -137,9 +137,11 @@ func (s *streamer) handleJob(ctx context.Context, job *schedulerv1pb.WatchJobsRe
 			log.Errorf("received scheduled job '%s' with invalid job target metadata, rejecting", job.GetName())
 			return schedulerv1pb.WatchJobsRequestResultStatus_FAILED
 		}
-		if err := channel.ValidateJobRoutePath(t.Job.GetOverrideRoutePath()); err != nil {
-			log.Errorf("received scheduled job '%s' with invalid override route path, rejecting: %s", job.GetName(), err)
-			return schedulerv1pb.WatchJobsRequestResultStatus_FAILED
+		if t.Job.OverrideRoutePath != nil {
+			if err := channel.ValidateJobRoutePath(*t.Job.OverrideRoutePath); err != nil {
+				log.Errorf("received scheduled job '%s' with invalid override route path, rejecting: %s", job.GetName(), err)
+				return schedulerv1pb.WatchJobsRequestResultStatus_FAILED
+			}
 		}
 		err := s.invokeApp(ctx, job, t.Job)
 		if err != nil {
