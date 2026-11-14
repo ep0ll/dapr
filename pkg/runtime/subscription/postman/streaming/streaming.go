@@ -103,7 +103,9 @@ func (s *streaming) DeliverBulk(ctx context.Context, req *postman.DeliverBulkReq
 
 	pending := make([]pendingEvent, 0, len(psm.PubSubMessages))
 	spans := make([]trace.Span, 0, len(psm.PubSubMessages))
-	defer todo.EndSpans(spans)
+	defer func() {
+		todo.EndSpans(spans)
+	}()
 
 	var preparationErr error
 	for _, message := range psm.PubSubMessages {
@@ -115,40 +117,34 @@ func (s *streaming) DeliverBulk(ctx context.Context, req *postman.DeliverBulkReq
 			continue
 		}
 
-		var envelope *rtv1pb.TopicEventRequest
+		cloudEvent := message.CloudEvent
 		if req.RawPayload {
-			envelope = &rtv1pb.TopicEventRequest{
-				Id:              message.Entry.EntryId,
-				Data:            message.Entry.Event,
-				DataContentType: message.Entry.ContentType,
-				Topic:           psm.Topic,
-				PubsubName:      psm.Pubsub,
-				Path:            psm.Path,
+			cloudEvent = contribpubsub.FromRawPayload(message.Entry.Event, psm.Topic, psm.Pubsub)
+			if message.Entry.ContentType != "" {
+				cloudEvent[contribpubsub.DataContentTypeField] = message.Entry.ContentType
 			}
-		} else {
-			subscribedMessage := &pubsub.SubscribedMessage{
-				CloudEvent:   message.CloudEvent,
-				Topic:        psm.Topic,
-				Metadata:     psm.Metadata,
-				Path:         psm.Path,
-				PubSub:       psm.Pubsub,
-				SubscriberID: bscData.SubscriberID,
-			}
-			_, envelope, span, err := pubsub.GRPCEnvelopeFromSubscriptionMessage(ctx, subscribedMessage, log, s.tracingSpec)
-			if span != nil {
-				spans = append(spans, span)
-			}
-			if err != nil {
-				todo.AddBulkResponseEntry(bulkResponses, message.Entry.EntryId, err)
-				bscData.BulkSubDiag.AddStatusCount(contribpubsub.Retry, 1)
-				preparationErr = errors.Join(preparationErr, err)
-				continue
-			}
-			// The stream ACK protocol correlates responses by ID. Use the component
-			// entry ID only when the CloudEvent does not provide one.
-			if envelope.GetId() == "" {
-				envelope.Id = message.Entry.EntryId
-			}
+		}
+
+		subscribedMessage := &pubsub.SubscribedMessage{
+			CloudEvent:   cloudEvent,
+			Topic:        psm.Topic,
+			Metadata:     psm.Metadata,
+			Path:         psm.Path,
+			PubSub:       psm.Pubsub,
+			SubscriberID: bscData.SubscriberID,
+		}
+		_, envelope, span, err := pubsub.GRPCEnvelopeFromSubscriptionMessage(ctx, subscribedMessage, log, s.tracingSpec)
+		if span != nil {
+			spans = append(spans, span)
+		}
+		if err != nil {
+			todo.AddBulkResponseEntry(bulkResponses, message.Entry.EntryId, err)
+			bscData.BulkSubDiag.AddStatusCount(contribpubsub.Retry, 1)
+			preparationErr = errors.Join(preparationErr, err)
+			continue
+		}
+		if envelope.GetId() == "" {
+			envelope.Id = message.Entry.EntryId
 		}
 
 		pending = append(pending, pendingEvent{envelope: envelope, message: message})
