@@ -39,12 +39,6 @@ type StateOperationOpts struct {
 	Metadata    map[string]string
 	ContentType *string
 
-	// FirstWriteETag marks public actor API requests so storage ETag errors
-	// can be translated to the actor API's HTTP/gRPC error contract. ETag
-	// guards are applied whenever an operation carries an ETag, including
-	// internal actor-state consumers such as the workflow runtime.
-	FirstWriteETag bool
-
 	// TODO: @joshvanl Remove in Dapr 1.12 when ActorStateTTL is finalized.
 	StateTTLEnabled bool
 }
@@ -55,8 +49,9 @@ type TransactionalRequest struct {
 	ActorType  string
 	ActorID    string
 
-	// Set only by the public actor state API.
-	FirstWriteETag bool `json:"-"`
+	// MapETagErrors indicates that state-store ETag errors should be mapped
+	// to the public actor API's HTTP/gRPC error contract.
+	MapETagErrors bool `json:"-"`
 }
 
 // ActorKey returns the key of the actor for this request.
@@ -132,10 +127,7 @@ type TransactionalUpsert struct {
 	Key        string            `json:"key"`
 	Value      any               `json:"value"`
 	ETag       *string           `json:"etag,omitempty"`
-	Metadata   map[string]string `json:"metadata,omitempty"`
-	// CreateOnly requests first-write-only semantics when the store advertises support.
-	CreateOnly bool              `json:"createOnly,omitempty"`
-}
+	Metadata   map[string]string `json:"metadata,omitempty"`}
 
 // StateOperation returns the state.TransactionalStateOperation object.
 func (t TransactionalUpsert) StateOperation(baseKey string, opts StateOperationOpts) (op state.TransactionalStateOperation, err error) {
@@ -163,16 +155,8 @@ func (t TransactionalUpsert) StateOperation(baseKey string, opts StateOperationO
 		ETag:        t.ETag,
 		ContentType: opts.ContentType,
 	}
-	// An explicit ETag always means optimistic concurrency, regardless of
-	// whether the request came from the public actor API or an internal
-	// actor-state consumer.
+	// An explicit ETag always means optimistic concurrency.
 	if req.HasETag() {
-		req.Options.Concurrency = state.FirstWrite
-	}
-	if opts.FirstWriteETag && t.CreateOnly {
-		if req.HasETag() {
-			return op, state.NewETagError(state.ETagInvalid, errors.New("createOnly cannot be combined with an etag"))
-		}
 		req.Options.Concurrency = state.FirstWrite
 	}
 	return req, nil
@@ -182,17 +166,12 @@ func (t TransactionalUpsert) StateOperation(baseKey string, opts StateOperationO
 type TransactionalDelete struct {
 	Key        string  `json:"key"`
 	ETag       *string `json:"etag,omitempty"`
-	CreateOnly bool    `json:"createOnly,omitempty"`
 }
 
 // StateOperation returns the state.TransactionalStateOperation object.
 func (t TransactionalDelete) StateOperation(baseKey string, opts StateOperationOpts) (op state.TransactionalStateOperation, err error) {
 	if t.Key == "" {
 		return op, errors.New("missing key")
-	}
-
-	if opts.FirstWriteETag && t.CreateOnly {
-		return op, state.NewETagError(state.ETagInvalid, errors.New("createOnly is only valid on an upsert"))
 	}
 
 	req := state.DeleteRequest{
