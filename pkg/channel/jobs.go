@@ -25,7 +25,7 @@ import (
 // URL control components or ambiguous path segments.
 func ValidateJobRoutePath(routePath string) error {
 	if routePath == "" {
-		return nil
+		return errors.New("override_route_path must be non-empty")
 	}
 
 	if !utf8.ValidString(routePath) || strings.HasPrefix(routePath, "/") || strings.HasSuffix(routePath, "/") {
