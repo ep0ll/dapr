@@ -76,6 +76,13 @@ func (a *api) SubscribeTopicEventsAlpha1(stream runtimev1pb.Dapr_SubscribeTopicE
 			Routes:          subapi.Routes{Default: "/"},
 		},
 	}
+	if bulkSubscribe := req.GetBulkSubscribe(); bulkSubscribe != nil {
+		sub.Spec.BulkSubscribe = subapi.BulkSubscribe{
+			Enabled:            bulkSubscribe.GetEnabled(),
+			MaxMessagesCount:   bulkSubscribe.GetMaxMessagesCount(),
+			MaxAwaitDurationMs: bulkSubscribe.GetMaxAwaitDurationMs(),
+		}
+	}
 	connectionID := a.Universal.CompStore().NextSubscriberIndex()
 	err = a.Universal.CompStore().AddStreamSubscription(sub, connectionID)
 	if err != nil {

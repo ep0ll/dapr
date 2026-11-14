@@ -88,6 +88,7 @@ type BulkSubscribeCallData struct {
 	EntryIdIndexMap *map[string]int //nolint:stylecheck
 	PsName          string
 	Topic           string
+	SubscriberID    pubsub.ConnectionID
 }
 
 type BulkSubscribeResiliencyRes struct {

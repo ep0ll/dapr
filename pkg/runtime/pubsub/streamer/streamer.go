@@ -277,6 +277,102 @@ func (s *streamer) Publish(ctx context.Context, msg *rtpubsub.SubscribedMessage)
 	}
 }
 
+func (s *streamer) PublishBulk(
+	ctx context.Context,
+	msg *rtpubsub.SubscribedMessage,
+	events []*rtv1pb.TopicEventRequest,
+) (map[string]*rtv1pb.SubscribeTopicEventsRequestProcessedAlpha1, error) {
+	responses := make(map[string]*rtv1pb.SubscribeTopicEventsRequestProcessedAlpha1, len(events))
+	if len(events) == 0 {
+		return responses, nil
+	}
+
+	key := s.StreamerKey(msg.PubSub, msg.Topic)
+	s.lock.RLock()
+	connection, ok := s.subscribers[key][msg.SubscriberID]
+	s.lock.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("no streamer subscribed to pubsub %q topic %q", msg.PubSub, msg.Topic)
+	}
+
+	if connection.closed.Load() {
+		return nil, rtpubsub.ErrSubscriptionClosed
+	}
+
+	select {
+	case <-connection.ready:
+	case <-connection.closeCh:
+		return nil, errors.New("stream closed")
+	case <-s.closeCh:
+		return nil, errors.New("streamer closed")
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	responseChannels := make(map[string]chan *rtv1pb.SubscribeTopicEventsRequestProcessedAlpha1, len(events))
+	cleanups := make([]func(), 0, len(events))
+	defer func() {
+		for _, cleanup := range cleanups {
+			cleanup()
+		}
+	}()
+
+	for _, event := range events {
+		if event == nil || event.GetId() == "" {
+			return responses, errors.New("bulk streaming event must have a non-empty ID")
+		}
+		id := event.GetId()
+		if _, exists := responseChannels[id]; exists {
+			return responses, fmt.Errorf("duplicate event ID %q in streaming batch", id)
+		}
+
+		ch, cleanup := connection.registerPublishResponse(id)
+		responseChannels[id] = ch
+		cleanups = append(cleanups, cleanup)
+	}
+
+	connection.streamLock.Lock()
+	err := connection.stream.Send(&rtv1pb.SubscribeTopicEventsResponseAlpha1{
+		EventMessages: events,
+	})
+	connection.streamLock.Unlock()
+	if err != nil {
+		return responses, fmt.Errorf("error sending bulk pub/sub events to app: %w", rterrors.NewRetriable(err))
+	}
+
+	var waitErr error
+	for _, event := range events {
+		id := event.GetId()
+		select {
+		case response := <-responseChannels[id]:
+			responses[id] = response
+		case <-ctx.Done():
+			waitErr = ctx.Err()
+		case <-connection.closeCh:
+			waitErr = errors.New("stream closed")
+		case <-s.closeCh:
+			waitErr = errors.New("streamer closed")
+		}
+		if waitErr != nil {
+			break
+		}
+	}
+
+	// Preserve acknowledgements that raced with cancellation or stream closure.
+	for id, ch := range responseChannels {
+		if _, received := responses[id]; received {
+			continue
+		}
+		select {
+		case response := <-ch:
+			responses[id] = response
+		default:
+		}
+	}
+
+	return responses, waitErr
+}
+
 func (s *streamer) StreamerKey(pubsub, topic string) string {
 	return "___" + pubsub + "||" + topic
 }

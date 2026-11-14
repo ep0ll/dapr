@@ -93,6 +93,11 @@ func (c *ComponentStore) AddStreamSubscription(comp *subapi.Subscription, connec
 				DeadLetterTopic: comp.Spec.DeadLetterTopic,
 				Metadata:        comp.Spec.Metadata,
 				Rules:           []*rtpubsub.Rule{{Path: "/"}},
+				BulkSubscribe: &rtpubsub.BulkSubscribe{
+					Enabled:            comp.Spec.BulkSubscribe.Enabled,
+					MaxMessagesCount:   comp.Spec.BulkSubscribe.MaxMessagesCount,
+					MaxAwaitDurationMs: comp.Spec.BulkSubscribe.MaxAwaitDurationMs,
+				},
 			},
 		},
 	}

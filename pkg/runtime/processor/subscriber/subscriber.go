@@ -641,6 +641,7 @@ func (s *Subscriber) startSubscription(pubsub *rtpubsub.PubsubItem, comp *compst
 		postman = streaming.New(streaming.Options{
 			Tracing: s.tracingSpec,
 			Channel: s.adapterStreamer,
+			Adapter: s.adapter,
 		})
 	} else {
 		if s.isHTTP {

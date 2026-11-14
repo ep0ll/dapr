@@ -84,6 +84,7 @@ func (s *Subscription) bulkSubscribeTopic(ctx context.Context, policyDef *resili
 			EntryIdIndexMap: &entryIdIndexMap,
 			PsName:          psName,
 			Topic:           topic,
+			SubscriberID:    s.connectionID,
 		}
 
 		rawPayload, err := metadata.IsRawPayload(route.Metadata)
