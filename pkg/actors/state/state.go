@@ -29,10 +29,7 @@ import (
 	"github.com/dapr/dapr/pkg/messages"
 	"github.com/dapr/dapr/pkg/resiliency"
 	"github.com/dapr/dapr/pkg/runtime/compstore"
-	"github.com/dapr/kit/logger"
 )
-
-var log = logger.NewLogger("dapr.runtime.actors.state")
 
 const (
 	metadataPartitionKey = "partitionKey"
