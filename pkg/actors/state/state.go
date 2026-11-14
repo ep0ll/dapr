@@ -278,6 +278,17 @@ func (s *state) executeStateStoreTransaction(
 			// Return the mismatch immediately so the actor can reload its state.
 			return struct{}{}, backoff.Permanent(multiErr)
 		}
+
+		// A store that cannot atomically enforce the conditional operations
+		// must fail the transaction before the request is retried. This is a
+		// capability limitation, not an ETag mismatch.
+		var conditionalNotAtomic interface {
+			ConditionalTransactionNotAtomic() bool
+		}
+		if errors.As(multiErr, &conditionalNotAtomic) && conditionalNotAtomic.ConditionalTransactionNotAtomic() {
+			return struct{}{}, backoff.Permanent(messages.ErrActorStateETagUnsupported.WithFormat(storeName))
+		}
+
 		return struct{}{}, multiErr
 	})
 	return err
