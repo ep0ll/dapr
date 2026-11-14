@@ -127,7 +127,8 @@ type TransactionalUpsert struct {
 	Key        string            `json:"key"`
 	Value      any               `json:"value"`
 	ETag       *string           `json:"etag,omitempty"`
-	Metadata   map[string]string `json:"metadata,omitempty"`}
+	Metadata   map[string]string `json:"metadata,omitempty"`
+}
 
 // StateOperation returns the state.TransactionalStateOperation object.
 func (t TransactionalUpsert) StateOperation(baseKey string, opts StateOperationOpts) (op state.TransactionalStateOperation, err error) {
