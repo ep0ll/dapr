@@ -280,7 +280,7 @@ func (s *streamer) Publish(ctx context.Context, msg *rtpubsub.SubscribedMessage)
 func (s *streamer) PublishBulk(
 	ctx context.Context,
 	msg *rtpubsub.SubscribedMessage,
-	events []*rtv1pb.TopicEventRequest,
+	events []*rtv1pb.SubscribeTopicEventsBulkEntryAlpha1,
 ) (map[string]*rtv1pb.SubscribeTopicEventsRequestProcessedAlpha1, error) {
 	responses := make(map[string]*rtv1pb.SubscribeTopicEventsRequestProcessedAlpha1, len(events))
 	if len(events) == 0 {
@@ -318,15 +318,18 @@ func (s *streamer) PublishBulk(
 	}()
 
 	for _, event := range events {
-		if event == nil || event.GetId() == "" {
-			return responses, errors.New("bulk streaming event must have a non-empty ID")
+		if event == nil || event.GetDeliveryId() == "" {
+			return responses, errors.New("bulk streaming event must have a non-empty delivery ID")
 		}
-		id := event.GetId()
+		id := event.GetDeliveryId()
 		if _, exists := responseChannels[id]; exists {
 			return responses, fmt.Errorf("duplicate event ID %q in streaming batch", id)
 		}
 
 		ch, cleanup := connection.registerPublishResponse(id)
+		if ch == nil {
+			return responses, fmt.Errorf("streaming delivery ID %q is already awaiting an acknowledgement", id)
+		}
 		responseChannels[id] = ch
 		cleanups = append(cleanups, cleanup)
 	}
@@ -342,7 +345,7 @@ func (s *streamer) PublishBulk(
 
 	var waitErr error
 	for _, event := range events {
-		id := event.GetId()
+		id := event.GetDeliveryId()
 		select {
 		case response := <-responseChannels[id]:
 			responses[id] = response

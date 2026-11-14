@@ -50,9 +50,9 @@ type AdapterStreamer interface {
 	// published once start has begun are delivered after the initial response.
 	Subscribe(stream rtv1pb.Dapr_SubscribeTopicEventsAlpha1Server, req *rtv1pb.SubscribeTopicEventsRequestInitialAlpha1, connectionID ConnectionID, start func() error) error
 	Publish(context.Context, *SubscribedMessage) (*rtv1pb.SubscribeTopicEventsRequestProcessedAlpha1, error)
-	// PublishBulk sends a batch of events and returns received acknowledgements keyed by event ID.
+	// PublishBulk sends a batch of events and returns received acknowledgements keyed by delivery ID.
 	// Partial acknowledgements are preserved when an error occurs.
-	PublishBulk(context.Context, *SubscribedMessage, []*rtv1pb.TopicEventRequest) (map[string]*rtv1pb.SubscribeTopicEventsRequestProcessedAlpha1, error)
+	PublishBulk(context.Context, *SubscribedMessage, []*rtv1pb.SubscribeTopicEventsBulkEntryAlpha1) (map[string]*rtv1pb.SubscribeTopicEventsRequestProcessedAlpha1, error)
 	StreamerKey(pubsub, topic string) string
 	Close(key string, connectionID ConnectionID)
 }

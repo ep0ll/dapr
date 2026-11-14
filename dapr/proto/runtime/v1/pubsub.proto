@@ -126,7 +126,9 @@ message SubscribeTopicEventsRequestInitialAlpha1 {
 // SubscribeTopicEventsRequestProcessedAlpha1 is the message containing the
 // subscription to a topic.
 message SubscribeTopicEventsRequestProcessedAlpha1 {
-  // id is the unique identifier for the subscription request.
+  // id identifies the delivery being acknowledged.
+  // Echo TopicEventRequest.id for a single event, or
+  // SubscribeTopicEventsBulkEntryAlpha1.delivery_id for a bulk entry.
   string id = 1;
 
   // status is the result of the subscription request.
@@ -143,12 +145,25 @@ message SubscribeTopicEventsResponseAlpha1 {
   }
 
   // A batch of events. When this field is populated, event_message is not set.
-  // Each event is acknowledged independently using its TopicEventRequest.id.
+  // Each event carries a delivery_id that the client must echo in the
+  // event_processed acknowledgement. The original bulk entry ID and
+  // CloudEvent ID remain unchanged inside entry.
   // This field is outside the oneof because protobuf does not allow repeated
   // fields inside a oneof.
-  repeated TopicEventRequest event_messages = 3;
+  repeated SubscribeTopicEventsBulkEntryAlpha1 event_messages = 3;
 }
 
 // SubscribeTopicEventsResponseInitialAlpha1 is the initial response from daprd
 // when subscribing to a topic.
 message SubscribeTopicEventsResponseInitialAlpha1 {}
+
+// SubscribeTopicEventsBulkEntryAlpha1 wraps a bulk subscription entry with
+// an ID used to correlate its streaming acknowledgement.
+message SubscribeTopicEventsBulkEntryAlpha1 {
+  // Unique ID for this individual streaming delivery. The client must echo
+  // this value in SubscribeTopicEventsRequestProcessedAlpha1.id.
+  string delivery_id = 1;
+
+  // The original bulk entry, including its entry ID and event payload.
+  TopicEventBulkRequestEntry entry = 2;
+}

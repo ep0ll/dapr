@@ -41,6 +41,10 @@ func (c *conn) registerPublishResponse(id string) (chan *rtv1pb.SubscribeTopicEv
 	if c.publishResponses[id] == nil {
 		c.publishResponses[id] = make(ConnectionChannel)
 	}
+	if _, exists := c.publishResponses[id][c.connectionID]; exists {
+		c.lock.Unlock()
+		return nil, func() {}
+	}
 
 	c.publishResponses[id][c.connectionID] = ch
 

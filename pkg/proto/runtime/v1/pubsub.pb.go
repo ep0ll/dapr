@@ -562,7 +562,9 @@ type SubscribeTopicEventsRequestProcessedAlpha1 struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// id is the unique identifier for the subscription request.
+	// id identifies the delivery being acknowledged.
+	// Echo TopicEventRequest.id for a single event, or
+	// SubscribeTopicEventsBulkEntryAlpha1.delivery_id for a bulk entry.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// status is the result of the subscription request.
 	Status *TopicEventResponse `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
@@ -626,7 +628,7 @@ type SubscribeTopicEventsResponseAlpha1 struct {
 	//	*SubscribeTopicEventsResponseAlpha1_InitialResponse
 	//	*SubscribeTopicEventsResponseAlpha1_EventMessage
 	SubscribeTopicEventsResponseType isSubscribeTopicEventsResponseAlpha1_SubscribeTopicEventsResponseType `protobuf_oneof:"subscribe_topic_events_response_type"`
-	EventMessages []*TopicEventRequest `protobuf:"bytes,3,rep,name=event_messages,json=eventMessages,proto3" json:"event_messages,omitempty"`
+	EventMessages []*SubscribeTopicEventsBulkEntryAlpha1 `protobuf:"bytes,3,rep,name=event_messages,json=eventMessages,proto3" json:"event_messages,omitempty"`
 }
 
 func (x *SubscribeTopicEventsResponseAlpha1) Reset() {
@@ -682,7 +684,7 @@ func (x *SubscribeTopicEventsResponseAlpha1) GetEventMessage() *TopicEventReques
 	return nil
 }
 
-func (x *SubscribeTopicEventsResponseAlpha1) GetEventMessages() []*TopicEventRequest {
+func (x *SubscribeTopicEventsResponseAlpha1) GetEventMessages() []*SubscribeTopicEventsBulkEntryAlpha1 {
 	if x != nil {
 		return x.EventMessages
 	}
@@ -745,6 +747,65 @@ func (x *SubscribeTopicEventsResponseInitialAlpha1) ProtoReflect() protoreflect.
 // Deprecated: Use SubscribeTopicEventsResponseInitialAlpha1.ProtoReflect.Descriptor instead.
 func (*SubscribeTopicEventsResponseInitialAlpha1) Descriptor() ([]byte, []int) {
 	return file_dapr_proto_runtime_v1_pubsub_proto_rawDescGZIP(), []int{9}
+}
+
+// SubscribeTopicEventsBulkEntryAlpha1 wraps an original bulk entry with a
+// delivery ID used to correlate its streaming acknowledgement.
+type SubscribeTopicEventsBulkEntryAlpha1 struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Unique ID for this individual streaming delivery.
+	DeliveryId string `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
+	// The original bulk entry, including its entry ID and event payload.
+	Entry *TopicEventBulkRequestEntry `protobuf:"bytes,2,opt,name=entry,proto3" json:"entry,omitempty"`
+}
+
+func (x *SubscribeTopicEventsBulkEntryAlpha1) Reset() {
+	*x = SubscribeTopicEventsBulkEntryAlpha1{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_dapr_proto_runtime_v1_pubsub_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SubscribeTopicEventsBulkEntryAlpha1) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubscribeTopicEventsBulkEntryAlpha1) ProtoMessage() {}
+
+func (x *SubscribeTopicEventsBulkEntryAlpha1) ProtoReflect() protoreflect.Message {
+	mi := &file_dapr_proto_runtime_v1_pubsub_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubscribeTopicEventsBulkEntryAlpha1.ProtoReflect.Descriptor instead.
+func (*SubscribeTopicEventsBulkEntryAlpha1) Descriptor() ([]byte, []int) {
+	return file_dapr_proto_runtime_v1_pubsub_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SubscribeTopicEventsBulkEntryAlpha1) GetDeliveryId() string {
+	if x != nil {
+		return x.DeliveryId
+	}
+	return ""
+}
+
+func (x *SubscribeTopicEventsBulkEntryAlpha1) GetEntry() *TopicEventBulkRequestEntry {
+	if x != nil {
+		return x.Entry
+	}
+	return nil
 }
 
 var File_dapr_proto_runtime_v1_pubsub_proto protoreflect.FileDescriptor
@@ -874,7 +935,7 @@ var file_dapr_proto_runtime_v1_pubsub_proto_rawDesc = []byte{
 	0x74, 0x75, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x29, 0x2e, 0x64, 0x61, 0x70, 0x72,
 	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x72, 0x75, 0x6e, 0x74, 0x69, 0x6d, 0x65, 0x2e, 0x76,
 	0x31, 0x2e, 0x54, 0x6f, 0x70, 0x69, 0x63, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x22, 0xdd, 0x02, 0x0a,
+	0x6f, 0x6e, 0x73, 0x65, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x22, 0xef, 0x02, 0x0a,
 	0x22, 0x53, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x54, 0x6f, 0x70, 0x69, 0x63, 0x45,
 	0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x41, 0x6c, 0x70,
 	0x68, 0x61, 0x31, 0x12, 0x6d, 0x0a, 0x10, 0x69, 0x6e, 0x69, 0x74, 0x69, 0x61, 0x6c, 0x5f, 0x72,
@@ -891,23 +952,38 @@ var file_dapr_proto_runtime_v1_pubsub_proto_rawDesc = []byte{
 	0x65, 0x73, 0x74, 0x48, 0x00, 0x52, 0x0c, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x4d, 0x65, 0x73, 0x73,
 	0x61, 0x67, 0x65, 0x42, 0x26, 0x0a, 0x24, 0x73, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65,
 	0x5f, 0x74, 0x6f, 0x70, 0x69, 0x63, 0x5f, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x5f, 0x72, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x12, 0x4f, 0x0a, 0x0e, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x12, 0x61, 0x0a, 0x0e, 0x65,
 	0x76, 0x65, 0x6e, 0x74, 0x5f, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x18, 0x03, 0x20,
-	0x03, 0x28, 0x0b, 0x32, 0x28, 0x2e, 0x64, 0x61, 0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x2e, 0x72, 0x75, 0x6e, 0x74, 0x69, 0x6d, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x6f, 0x70, 0x69,
-	0x63, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x52, 0x0d, 0x65,
-	0x76, 0x65, 0x6e, 0x74, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x22, 0x2b, 0x0a, 0x29,
-	0x53, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x54, 0x6f, 0x70, 0x69, 0x63, 0x45, 0x76,
-	0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x49, 0x6e, 0x69, 0x74,
-	0x69, 0x61, 0x6c, 0x41, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x42, 0x6f, 0x0a, 0x0a, 0x69, 0x6f, 0x2e,
-	0x64, 0x61, 0x70, 0x72, 0x2e, 0x76, 0x31, 0x42, 0x10, 0x44, 0x61, 0x70, 0x72, 0x50, 0x75, 0x62,
-	0x73, 0x75, 0x62, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x73, 0x5a, 0x31, 0x67, 0x69, 0x74, 0x68, 0x75,
-	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x61, 0x70, 0x72, 0x2f, 0x64, 0x61, 0x70, 0x72, 0x2f,
-	0x70, 0x6b, 0x67, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x72, 0x75, 0x6e, 0x74, 0x69, 0x6d,
-	0x65, 0x2f, 0x76, 0x31, 0x3b, 0x72, 0x75, 0x6e, 0x74, 0x69, 0x6d, 0x65, 0xaa, 0x02, 0x1b, 0x44,
-	0x61, 0x70, 0x72, 0x2e, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2e, 0x41, 0x75, 0x74, 0x6f, 0x67,
-	0x65, 0x6e, 0x2e, 0x47, 0x72, 0x70, 0x63, 0x2e, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x33,
+	0x03, 0x28, 0x0b, 0x32, 0x3a, 0x2e, 0x64, 0x61, 0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x2e, 0x72, 0x75, 0x6e, 0x74, 0x69, 0x6d, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x75, 0x62, 0x73,
+	0x63, 0x72, 0x69, 0x62, 0x65, 0x54, 0x6f, 0x70, 0x69, 0x63, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73,
+	0x42, 0x75, 0x6c, 0x6b, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x41, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x52,
+	0x0d, 0x65, 0x76, 0x65, 0x6e, 0x74, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x73, 0x22, 0x2b,
+	0x0a, 0x29, 0x53, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65, 0x54, 0x6f, 0x70, 0x69, 0x63,
+	0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x49, 0x6e,
+	0x69, 0x74, 0x69, 0x61, 0x6c, 0x41, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x42, 0x6f, 0x0a, 0x0a, 0x69,
+	0x6f, 0x2e, 0x64, 0x61, 0x70, 0x72, 0x2e, 0x76, 0x31, 0x42, 0x10, 0x44, 0x61, 0x70, 0x72, 0x50,
+	0x75, 0x62, 0x73, 0x75, 0x62, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x73, 0x5a, 0x31, 0x67, 0x69, 0x74,
+	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x61, 0x70, 0x72, 0x2f, 0x64, 0x61, 0x70,
+	0x72, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x72, 0x75, 0x6e, 0x74,
+	0x69, 0x6d, 0x65, 0x2f, 0x76, 0x31, 0x3b, 0x72, 0x75, 0x6e, 0x74, 0x69, 0x6d, 0x65, 0xaa, 0x02,
+	0x1b, 0x44, 0x61, 0x70, 0x72, 0x2e, 0x43, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2e, 0x41, 0x75, 0x74,
+	0x6f, 0x67, 0x65, 0x6e, 0x2e, 0x47, 0x72, 0x70, 0x63, 0x2e, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x33, 0x22, 0xe1, 0x01, 0x0a, 0x23, 0x53, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69,
+	0x62, 0x65, 0x54, 0x6f, 0x70, 0x69, 0x63, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x73, 0x42, 0x75, 0x6c,
+	0x6b, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x41, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x0a, 0x64, 0x65, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x79, 0x49, 0x64, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x31, 0x2e, 0x64, 0x61, 0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x2e, 0x72, 0x75, 0x6e, 0x74, 0x69, 0x6d, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x6f, 0x70,
+	0x69, 0x63, 0x45, 0x76, 0x65, 0x6e, 0x74, 0x42, 0x75, 0x6c, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x05, 0x65, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x1f,
+	0x0a, 0x0b, 0x64, 0x65, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x79, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x0a, 0x64, 0x65, 0x6c, 0x69, 0x76, 0x65, 0x72, 0x79, 0x49, 0x64, 0x12,
+	0x47, 0x0a, 0x05, 0x65, 0x6e, 0x74, 0x72, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x31,
+	0x2e, 0x64, 0x61, 0x70, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x72, 0x75, 0x6e, 0x74,
+	0x69, 0x6d, 0x65, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x6f, 0x70, 0x69, 0x63, 0x45, 0x76, 0x65, 0x6e,
+	0x74, 0x42, 0x75, 0x6c, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x45, 0x6e, 0x74, 0x72,
+	0x79, 0x52, 0x05, 0x65, 0x6e, 0x74, 0x72, 0x79,
 }
 
 var (
@@ -922,45 +998,48 @@ func file_dapr_proto_runtime_v1_pubsub_proto_rawDescGZIP() []byte {
 	return file_dapr_proto_runtime_v1_pubsub_proto_rawDescData
 }
 
-var file_dapr_proto_runtime_v1_pubsub_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_dapr_proto_runtime_v1_pubsub_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_dapr_proto_runtime_v1_pubsub_proto_goTypes = []interface{}{
-	(*PublishEventRequest)(nil),                        // 0: dapr.proto.runtime.v1.PublishEventRequest
-	(*BulkPublishRequest)(nil),                         // 1: dapr.proto.runtime.v1.BulkPublishRequest
-	(*BulkPublishRequestEntry)(nil),                    // 2: dapr.proto.runtime.v1.BulkPublishRequestEntry
-	(*BulkPublishResponse)(nil),                        // 3: dapr.proto.runtime.v1.BulkPublishResponse
-	(*BulkPublishResponseFailedEntry)(nil),             // 4: dapr.proto.runtime.v1.BulkPublishResponseFailedEntry
-	(*SubscribeTopicEventsRequestAlpha1)(nil),          // 5: dapr.proto.runtime.v1.SubscribeTopicEventsRequestAlpha1
-	(*SubscribeTopicEventsRequestInitialAlpha1)(nil),   // 6: dapr.proto.runtime.v1.SubscribeTopicEventsRequestInitialAlpha1
-	(*SubscribeTopicEventsRequestProcessedAlpha1)(nil), // 7: dapr.proto.runtime.v1.SubscribeTopicEventsRequestProcessedAlpha1
-	(*SubscribeTopicEventsResponseAlpha1)(nil),         // 8: dapr.proto.runtime.v1.SubscribeTopicEventsResponseAlpha1
-	(*SubscribeTopicEventsResponseInitialAlpha1)(nil),  // 9: dapr.proto.runtime.v1.SubscribeTopicEventsResponseInitialAlpha1
-	nil,                        // 10: dapr.proto.runtime.v1.PublishEventRequest.MetadataEntry
-	nil,                        // 11: dapr.proto.runtime.v1.BulkPublishRequest.MetadataEntry
-	nil,                        // 12: dapr.proto.runtime.v1.BulkPublishRequestEntry.MetadataEntry
-	nil,                        // 13: dapr.proto.runtime.v1.SubscribeTopicEventsRequestInitialAlpha1.MetadataEntry
-	(*TopicEventResponse)(nil), // 14: dapr.proto.runtime.v1.TopicEventResponse
-	(*TopicEventRequest)(nil),  // 15: dapr.proto.runtime.v1.TopicEventRequest
-	(*BulkSubscribeConfig)(nil), // 16: dapr.proto.runtime.v1.BulkSubscribeConfig
+	(*PublishEventRequest)(nil),                          // 0: dapr.proto.runtime.v1.PublishEventRequest
+	(*BulkPublishRequest)(nil),                           // 1: dapr.proto.runtime.v1.BulkPublishRequest
+	(*BulkPublishRequestEntry)(nil),                      // 2: dapr.proto.runtime.v1.BulkPublishRequestEntry
+	(*BulkPublishResponse)(nil),                          // 3: dapr.proto.runtime.v1.BulkPublishResponse
+	(*BulkPublishResponseFailedEntry)(nil),               // 4: dapr.proto.runtime.v1.BulkPublishResponseFailedEntry
+	(*SubscribeTopicEventsRequestAlpha1)(nil),            // 5: dapr.proto.runtime.v1.SubscribeTopicEventsRequestAlpha1
+	(*SubscribeTopicEventsRequestInitialAlpha1)(nil),     // 6: dapr.proto.runtime.v1.SubscribeTopicEventsRequestInitialAlpha1
+	(*SubscribeTopicEventsRequestProcessedAlpha1)(nil),   // 7: dapr.proto.runtime.v1.SubscribeTopicEventsRequestProcessedAlpha1
+	(*SubscribeTopicEventsResponseAlpha1)(nil),           // 8: dapr.proto.runtime.v1.SubscribeTopicEventsResponseAlpha1
+	(*SubscribeTopicEventsResponseInitialAlpha1)(nil),    // 9: dapr.proto.runtime.v1.SubscribeTopicEventsResponseInitialAlpha1
+	(*SubscribeTopicEventsBulkEntryAlpha1)(nil),          // 10: dapr.proto.runtime.v1.SubscribeTopicEventsBulkEntryAlpha1
+	nil,                                                  // 11: dapr.proto.runtime.v1.PublishEventRequest.MetadataEntry
+	nil,                                                  // 12: dapr.proto.runtime.v1.BulkPublishRequest.MetadataEntry
+	nil,                                                  // 13: dapr.proto.runtime.v1.BulkPublishRequestEntry.MetadataEntry
+	nil,                                                  // 14: dapr.proto.runtime.v1.SubscribeTopicEventsRequestInitialAlpha1.MetadataEntry
+	(*TopicEventResponse)(nil),                           // 15: dapr.proto.runtime.v1.TopicEventResponse
+	(*TopicEventRequest)(nil),                            // 16: dapr.proto.runtime.v1.TopicEventRequest
+	(*BulkSubscribeConfig)(nil),                          // 17: dapr.proto.runtime.v1.BulkSubscribeConfig
+	(*TopicEventBulkRequestEntry)(nil),                   // 18: dapr.proto.runtime.v1.TopicEventBulkRequestEntry
 }
 var file_dapr_proto_runtime_v1_pubsub_proto_depIdxs = []int32{
-	10, // 0: dapr.proto.runtime.v1.PublishEventRequest.metadata:type_name -> dapr.proto.runtime.v1.PublishEventRequest.MetadataEntry
+	11, // 0: dapr.proto.runtime.v1.PublishEventRequest.metadata:type_name -> dapr.proto.runtime.v1.PublishEventRequest.MetadataEntry
 	2,  // 1: dapr.proto.runtime.v1.BulkPublishRequest.entries:type_name -> dapr.proto.runtime.v1.BulkPublishRequestEntry
-	11, // 2: dapr.proto.runtime.v1.BulkPublishRequest.metadata:type_name -> dapr.proto.runtime.v1.BulkPublishRequest.MetadataEntry
-	12, // 3: dapr.proto.runtime.v1.BulkPublishRequestEntry.metadata:type_name -> dapr.proto.runtime.v1.BulkPublishRequestEntry.MetadataEntry
+	12, // 2: dapr.proto.runtime.v1.BulkPublishRequest.metadata:type_name -> dapr.proto.runtime.v1.BulkPublishRequest.MetadataEntry
+	13, // 3: dapr.proto.runtime.v1.BulkPublishRequestEntry.metadata:type_name -> dapr.proto.runtime.v1.BulkPublishRequestEntry.MetadataEntry
 	4,  // 4: dapr.proto.runtime.v1.BulkPublishResponse.failedEntries:type_name -> dapr.proto.runtime.v1.BulkPublishResponseFailedEntry
 	6,  // 5: dapr.proto.runtime.v1.SubscribeTopicEventsRequestAlpha1.initial_request:type_name -> dapr.proto.runtime.v1.SubscribeTopicEventsRequestInitialAlpha1
 	7,  // 6: dapr.proto.runtime.v1.SubscribeTopicEventsRequestAlpha1.event_processed:type_name -> dapr.proto.runtime.v1.SubscribeTopicEventsRequestProcessedAlpha1
-	13, // 7: dapr.proto.runtime.v1.SubscribeTopicEventsRequestInitialAlpha1.metadata:type_name -> dapr.proto.runtime.v1.SubscribeTopicEventsRequestInitialAlpha1.MetadataEntry
-	16, // 8: dapr.proto.runtime.v1.SubscribeTopicEventsRequestInitialAlpha1.bulk_subscribe:type_name -> dapr.proto.runtime.v1.BulkSubscribeConfig
-	14, // 9: dapr.proto.runtime.v1.SubscribeTopicEventsRequestProcessedAlpha1.status:type_name -> dapr.proto.runtime.v1.TopicEventResponse
+	14, // 7: dapr.proto.runtime.v1.SubscribeTopicEventsRequestInitialAlpha1.metadata:type_name -> dapr.proto.runtime.v1.SubscribeTopicEventsRequestInitialAlpha1.MetadataEntry
+	17, // 8: dapr.proto.runtime.v1.SubscribeTopicEventsRequestInitialAlpha1.bulk_subscribe:type_name -> dapr.proto.runtime.v1.BulkSubscribeConfig
+	15, // 9: dapr.proto.runtime.v1.SubscribeTopicEventsRequestProcessedAlpha1.status:type_name -> dapr.proto.runtime.v1.TopicEventResponse
 	9,  // 10: dapr.proto.runtime.v1.SubscribeTopicEventsResponseAlpha1.initial_response:type_name -> dapr.proto.runtime.v1.SubscribeTopicEventsResponseInitialAlpha1
-	15, // 11: dapr.proto.runtime.v1.SubscribeTopicEventsResponseAlpha1.event_message:type_name -> dapr.proto.runtime.v1.TopicEventRequest
-	15, // 12: dapr.proto.runtime.v1.SubscribeTopicEventsResponseAlpha1.event_messages:type_name -> dapr.proto.runtime.v1.TopicEventRequest
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	16, // 11: dapr.proto.runtime.v1.SubscribeTopicEventsResponseAlpha1.event_message:type_name -> dapr.proto.runtime.v1.TopicEventRequest
+	10, // 12: dapr.proto.runtime.v1.SubscribeTopicEventsResponseAlpha1.event_messages:type_name -> dapr.proto.runtime.v1.SubscribeTopicEventsBulkEntryAlpha1
+	18, // 13: dapr.proto.runtime.v1.SubscribeTopicEventsBulkEntryAlpha1.entry:type_name -> dapr.proto.runtime.v1.TopicEventBulkRequestEntry
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_dapr_proto_runtime_v1_pubsub_proto_init() }
@@ -1090,6 +1169,18 @@ func file_dapr_proto_runtime_v1_pubsub_proto_init() {
 				return nil
 			}
 		}
+		file_dapr_proto_runtime_v1_pubsub_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SubscribeTopicEventsBulkEntryAlpha1); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_dapr_proto_runtime_v1_pubsub_proto_msgTypes[5].OneofWrappers = []interface{}{
 		(*SubscribeTopicEventsRequestAlpha1_InitialRequest)(nil),
@@ -1106,7 +1197,7 @@ func file_dapr_proto_runtime_v1_pubsub_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_dapr_proto_runtime_v1_pubsub_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

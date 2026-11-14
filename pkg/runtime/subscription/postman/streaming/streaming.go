@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
 
 	contribpubsub "github.com/dapr/components-contrib/pubsub"
@@ -96,12 +97,8 @@ func (s *streaming) DeliverBulk(ctx context.Context, req *postman.DeliverBulkReq
 	psm := req.BulkSubMsg
 	bulkResponses := req.BulkResponses
 
-	type pendingEvent struct {
-		envelope *rtv1pb.TopicEventRequest
-		message  todo.Message
-	}
-
-	pending := make([]pendingEvent, 0, len(psm.PubSubMessages))
+	events := make([]*rtv1pb.SubscribeTopicEventsBulkEntryAlpha1, 0, len(psm.PubSubMessages))
+	attemptMessages := make(map[string]todo.Message, len(psm.PubSubMessages))
 	spans := make([]trace.Span, 0, len(psm.PubSubMessages))
 	defer func() {
 		todo.EndSpans(spans)
@@ -111,72 +108,56 @@ func (s *streaming) DeliverBulk(ctx context.Context, req *postman.DeliverBulkReq
 	for _, message := range psm.PubSubMessages {
 		if message.Entry == nil {
 			err := errors.New("bulk streaming message is missing its original entry")
-			todo.AddBulkResponseEntry(bulkResponses, "", err)
 			bscData.BulkSubDiag.AddStatusCount(contribpubsub.Retry, 1)
+			if message.RawData != nil && message.RawData.EntryId != "" {
+				todo.AddBulkResponseEntry(bulkResponses, message.RawData.EntryId, err)
+			}
 			preparationErr = errors.Join(preparationErr, err)
 			continue
 		}
 
-		cloudEvent := message.CloudEvent
-		if req.RawPayload {
-			cloudEvent = contribpubsub.FromRawPayload(message.Entry.Event, psm.Topic, psm.Pubsub)
-			if message.Entry.ContentType != "" {
-				cloudEvent[contribpubsub.DataContentTypeField] = message.Entry.ContentType
-			}
-		}
-
-		subscribedMessage := &pubsub.SubscribedMessage{
-			CloudEvent:   cloudEvent,
-			Topic:        psm.Topic,
-			Metadata:     psm.Metadata,
-			Path:         psm.Path,
-			PubSub:       psm.Pubsub,
-			SubscriberID: bscData.SubscriberID,
-		}
-		_, envelope, span, err := pubsub.GRPCEnvelopeFromSubscriptionMessage(ctx, subscribedMessage, log, s.tracingSpec)
+		// Match the existing gRPC bulk postman: preserve the original
+		// component EntryId and CloudEvent ID in the payload, while keeping
+		// streaming acknowledgement correlation separate.
+		sc := pubsub.ParentSpanContextFromCloudEvent(message.CloudEvent, log)
+		_, span := diag.StartInternalCallbackSpan(ctx, "pubsub/"+psm.Topic, sc, s.tracingSpec)
 		if span != nil {
 			spans = append(spans, span)
 		}
+
+		entry, err := pubsub.FetchEntry(req.RawPayload, message.Entry, message.CloudEvent)
 		if err != nil {
-			todo.AddBulkResponseEntry(bulkResponses, message.Entry.EntryId, err)
 			bscData.BulkSubDiag.AddStatusCount(contribpubsub.Retry, 1)
+			todo.AddBulkResponseEntry(bulkResponses, message.Entry.EntryId, err)
 			preparationErr = errors.Join(preparationErr, err)
 			continue
 		}
-		if envelope.GetId() == "" {
-			envelope.Id = message.Entry.EntryId
-		}
 
-		pending = append(pending, pendingEvent{envelope: envelope, message: message})
-	}
-
-	// An ACK carries only the event ID. Do not send ambiguous batches where
-	// multiple entries would be indistinguishable to the receiver.
-	byID := make(map[string][]pendingEvent, len(pending))
-	for _, item := range pending {
-		byID[item.envelope.GetId()] = append(byID[item.envelope.GetId()], item)
-	}
-	events := make([]*rtv1pb.TopicEventRequest, 0, len(pending))
-	attemptMessages := make(map[string]todo.Message, len(pending))
-	seen := make(map[string]bool, len(byID))
-	for _, item := range pending {
-		id := item.envelope.GetId()
-		if seen[id] {
-			continue
-		}
-		seen[id] = true
-		group := byID[id]
-		if len(group) > 1 {
-			err := fmt.Errorf("duplicate event ID %q in bulk streaming subscription", id)
-			for _, duplicate := range group {
-				todo.AddBulkResponseEntry(bulkResponses, duplicate.message.Entry.EntryId, err)
-				bscData.BulkSubDiag.AddStatusCount(contribpubsub.Retry, 1)
-			}
+		deliveryID, err := uuid.NewRandom()
+		if err != nil {
+			err = fmt.Errorf("failed to generate streaming bulk delivery ID: %w", err)
+			bscData.BulkSubDiag.AddStatusCount(contribpubsub.Retry, 1)
+			todo.AddBulkResponseEntry(bulkResponses, message.Entry.EntryId, err)
 			preparationErr = errors.Join(preparationErr, err)
 			continue
 		}
-		attemptMessages[id] = item.message
-		events = append(events, item.envelope)
+
+		id := deliveryID.String()
+		if _, exists := attemptMessages[id]; exists {
+			// UUID collisions are extraordinarily unlikely, but must never
+			// cause one acknowledgement to complete more than one entry.
+			err = fmt.Errorf("duplicate streaming bulk delivery ID %q", id)
+			bscData.BulkSubDiag.AddStatusCount(contribpubsub.Retry, 1)
+			todo.AddBulkResponseEntry(bulkResponses, message.Entry.EntryId, err)
+			preparationErr = errors.Join(preparationErr, err)
+			continue
+		}
+
+		events = append(events, &rtv1pb.SubscribeTopicEventsBulkEntryAlpha1{
+			DeliveryId: id,
+			Entry:      entry,
+		})
+		attemptMessages[id] = message
 	}
 
 	var (
@@ -201,8 +182,9 @@ func (s *streaming) DeliverBulk(ctx context.Context, req *postman.DeliverBulkReq
 
 	hasAnyError := preparationErr != nil
 	for _, event := range events {
-		message := attemptMessages[event.GetId()]
-		response := acknowledgements[event.GetId()]
+		deliveryID := event.GetDeliveryId()
+		message := attemptMessages[deliveryID]
+		response := acknowledgements[deliveryID]
 		if response == nil {
 			err := publishErr
 			if err == nil {
