@@ -185,7 +185,6 @@ func (s *state) GetBulk(ctx context.Context, req *api.GetBulkStateRequest, lock 
 		// Trim the prefix from the key
 		bulkRes[strings.TrimPrefix(r.Key, baseKey)] = api.BulkStateEntry{
 			Data: r.Data,
-			ETag: r.ETag,
 		}
 	}
 
