@@ -1174,7 +1174,7 @@ func (a *api) GetActorState(ctx context.Context, in *runtimev1pb.GetActorStateRe
 	return res, nil
 }
 
-func (a *api) ExecuteActorStateTransaction(ctx context.Context, in *runtimev1pb.ExecuteActorStateTransactionRequest) (*runtimev1pb.ExecuteActorStateTransactionResponse, error) {
+func (a *api) ExecuteActorStateTransaction(ctx context.Context, in *runtimev1pb.ExecuteActorStateTransactionRequest) (*emptypb.Empty, error) {
 	if err := a.RejectInternalActorType(in.GetActorType()); err != nil {
 		return nil, err
 	}
@@ -1251,7 +1251,7 @@ func (a *api) ExecuteActorStateTransaction(ctx context.Context, in *runtimev1pb.
 		return nil, err
 	}
 
-	return &runtimev1pb.ExecuteActorStateTransactionResponse{}, nil
+	return &emptypb.Empty{}, nil
 }
 
 func (a *api) InvokeActor(ctx context.Context, in *runtimev1pb.InvokeActorRequest) (*runtimev1pb.InvokeActorResponse, error) {
