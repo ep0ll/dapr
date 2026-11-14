@@ -56,6 +56,7 @@ var (
 	ActorStateTransactionSave     = ErrorCode{"ERR_ACTOR_STATE_TRANSACTION_SAVE", "", CategoryActor}  // Error saving actor transaction
 	ActorStateETagMismatch        = ErrorCode{"ERR_ACTOR_STATE_ETAG_MISMATCH", "", CategoryActor}     // Actor state etag did not match
 	ActorStateETagInvalid         = ErrorCode{"ERR_ACTOR_STATE_ETAG_INVALID", "", CategoryActor}      // Actor state etag is malformed for the state store
+	ActorStateETagUnsupported     = ErrorCode{"ERR_ACTOR_STATE_ETAG_UNSUPPORTED", "", CategoryActor}      // State store cannot atomically enforce conditional actor state transactions
 	ActorReminderCreate           = ErrorCode{"ERR_ACTOR_REMINDER_CREATE", "", CategoryActor}         // Error creating actor reminder
 	ActorReminderDelete           = ErrorCode{"ERR_ACTOR_REMINDER_DELETE", "", CategoryActor}         // Error deleting actor reminder
 	ActorReminderGet              = ErrorCode{"ERR_ACTOR_REMINDER_GET", "", CategoryActor}            // Error getting actor reminder
