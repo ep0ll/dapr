@@ -87,8 +87,10 @@ func (a *Universal) scheduleJob(ctx context.Context, jobRequest *runtimev1pb.Sch
 		return &runtimev1pb.ScheduleJobResponse{}, apierrors.Empty("Schedule", errMetadata, errorcodes.SchedulerScheduleEmpty)
 	}
 
-	if err := appchannel.ValidateJobRoutePath(job.GetOverrideRoutePath()); err != nil {
-		return &runtimev1pb.ScheduleJobResponse{}, status.Error(codes.InvalidArgument, err.Error())
+	if job.OverrideRoutePath != nil {
+		if err := appchannel.ValidateJobRoutePath(*job.OverrideRoutePath); err != nil {
+			return &runtimev1pb.ScheduleJobResponse{}, status.Error(codes.InvalidArgument, err.Error())
+		}
 	}
 
 	internalScheduleJobReq := &schedulerv1pb.ScheduleJobRequest{
