@@ -43,7 +43,6 @@ import (
 	internalsv1pb "github.com/dapr/dapr/pkg/proto/internals/v1"
 	runtimev1pb "github.com/dapr/dapr/pkg/proto/runtime/v1"
 	"github.com/dapr/dapr/pkg/resiliency"
-	kitstrings "github.com/dapr/kit/strings"
 )
 
 var endpointGroupActorV1State = &endpoints.EndpointGroup{
