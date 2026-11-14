@@ -1150,7 +1150,6 @@ func (a *api) GetActorState(ctx context.Context, in *runtimev1pb.GetActorStateRe
 		ActorType:   actorType,
 		ActorID:     actorID,
 		Key:         key,
-		StrictETag:  true,
 	}
 
 	resp, err := astate.Get(ctx, &req, true)
@@ -1205,9 +1204,6 @@ func (a *api) ExecuteActorStateTransaction(ctx context.Context, in *runtimev1pb.
 			if etag := op.GetEtag(); etag != "" {
 				setReq["etag"] = etag
 			}
-			if op.GetCreateOnly() {
-				setReq["createOnly"] = true
-			}
 
 			actorOp = actorapi.TransactionalOperation{
 				Operation: actorapi.Upsert,
@@ -1220,9 +1216,6 @@ func (a *api) ExecuteActorStateTransaction(ctx context.Context, in *runtimev1pb.
 			}
 			if etag := op.GetEtag(); etag != "" {
 				delReq["etag"] = etag
-			}
-			if op.GetCreateOnly() {
-				delReq["createOnly"] = true
 			}
 
 			actorOp = actorapi.TransactionalOperation{
@@ -1243,15 +1236,10 @@ func (a *api) ExecuteActorStateTransaction(ctx context.Context, in *runtimev1pb.
 		ActorID:        actorID,
 		ActorType:      actorType,
 		Operations:     actorOps,
-		FirstWriteETag: true,
+		MapETagErrors: true,
 	}
 
-	var etags map[string]string
-	if in.GetReturnEtags() {
-		etags, err = astate.TransactionalStateOperationWithETags(ctx, false, &req, true)
-	} else {
-		err = astate.TransactionalStateOperation(ctx, false, &req, true)
-	}
+	err = astate.TransactionalStateOperation(ctx, false, &req, true)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
 			apiServerLogger.Debug(err)
@@ -1263,7 +1251,7 @@ func (a *api) ExecuteActorStateTransaction(ctx context.Context, in *runtimev1pb.
 		return nil, err
 	}
 
-	return &runtimev1pb.ExecuteActorStateTransactionResponse{Etags: etags}, nil
+	return &runtimev1pb.ExecuteActorStateTransactionResponse{}, nil
 }
 
 func (a *api) InvokeActor(ctx context.Context, in *runtimev1pb.InvokeActorRequest) (*runtimev1pb.InvokeActorResponse, error) {
