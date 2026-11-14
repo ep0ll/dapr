@@ -84,7 +84,7 @@ message GetActorStateResponse {
   // The metadata which will be sent to app.
   map<string, string> metadata = 2;
 
-  // The ETag of the stored value. Empty when the key is missing or the state store does not support atomic transactional ETags.
+  // The ETag returned by the state store. Empty when the key is missing or the store does not return an ETag.
   string etag = 3;
 }
 
