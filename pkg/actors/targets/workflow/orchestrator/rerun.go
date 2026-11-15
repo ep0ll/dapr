@@ -22,7 +22,9 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/dapr/dapr/pkg/actors/targets/workflow/common"
@@ -37,12 +39,24 @@ import (
 	"github.com/dapr/durabletask-go/backend/runtimestate"
 )
 
+// rerunPreserveTraceContextFieldNumber is the wire field assigned to the
+// preserveTraceContext option on durabletask-protobuf's
+// RerunWorkflowFromEventRequest. The pinned durabletask-go generated message
+// may predate this field, so unknown-field decoding keeps this runtime
+// forward-compatible while newer generated descriptors are preferred.
+const rerunPreserveTraceContextFieldNumber protowire.Number = 8
+
 // forkWorkflowHistory forks this instance's history into the rerun's new
 // instance, and reports whether a fallback host staged the rerun there.
 func (o *orchestrator) forkWorkflowHistory(ctx context.Context, request []byte) (bool, error) {
 	var rerunReq backend.RerunWorkflowFromEventRequest
 	if err := proto.Unmarshal(request, &rerunReq); err != nil {
 		return false, fmt.Errorf("failed to unmarshal rerun workflow request: %w", err)
+	}
+
+	preserveTraceContext, err := readRerunPreserveTraceContext(&rerunReq)
+	if err != nil {
+		return false, fmt.Errorf("failed to read rerun trace-context option: %w", err)
 	}
 
 	state, ometa, err := o.loadInternalState(ctx)
@@ -76,9 +90,10 @@ func (o *orchestrator) forkWorkflowHistory(ctx context.Context, request []byte) 
 		//nolint:gosec
 		TargetEventID: int32(rerunReq.GetEventID()),
 
-		OverwriteInput: rerunReq.GetOverwriteInput(),
-		Input:          rerunReq.Input,
-		OldState:       state,
+		OverwriteInput:       rerunReq.GetOverwriteInput(),
+		Input:                rerunReq.Input,
+		PreserveTraceContext: preserveTraceContext,
+		OldState:             state,
 	})
 
 	newState, err := fork.Build()
@@ -100,6 +115,49 @@ func (o *orchestrator) forkWorkflowHistory(ctx context.Context, request []byte) 
 	)
 
 	return common.IsFallback(res), err
+}
+
+// readRerunPreserveTraceContext reads the opt-in from the rerun request.
+// Reflection handles the request once its generated descriptor includes the
+// field. Until then, protobuf retains field 8 in the unknown-field set.
+func readRerunPreserveTraceContext(req *backend.RerunWorkflowFromEventRequest) (bool, error) {
+	message := req.ProtoReflect()
+	if field := message.Descriptor().Fields().ByNumber(protoreflect.FieldNumber(rerunPreserveTraceContextFieldNumber)); field != nil {
+		if field.Kind() != protoreflect.BoolKind || field.Cardinality() == protoreflect.Repeated {
+			return false, fmt.Errorf("rerun field %d must be a singular bool", rerunPreserveTraceContextFieldNumber)
+		}
+		return message.Get(field).Bool(), nil
+	}
+
+	unknown := message.GetUnknown()
+	var preserve bool
+	for len(unknown) > 0 {
+		number, wireType, n := protowire.ConsumeTag(unknown)
+		if n < 0 {
+			return false, fmt.Errorf("invalid rerun request field tag: %w", protowire.ParseError(n))
+		}
+		unknown = unknown[n:]
+
+		if number == rerunPreserveTraceContextFieldNumber {
+			if wireType != protowire.VarintType {
+				return false, fmt.Errorf("rerun field %d has wire type %d; expected varint bool", number, wireType)
+			}
+			value, n := protowire.ConsumeVarint(unknown)
+			if n < 0 {
+				return false, fmt.Errorf("invalid rerun trace-context option: %w", protowire.ParseError(n))
+			}
+			preserve = value != 0
+			unknown = unknown[n:]
+			continue
+		}
+
+		n = protowire.ConsumeFieldValue(number, wireType, unknown)
+		if n < 0 {
+			return false, fmt.Errorf("invalid unknown rerun request field %d: %w", number, protowire.ParseError(n))
+		}
+		unknown = unknown[n:]
+	}
+	return preserve, nil
 }
 
 func (o *orchestrator) rerunWorkflowInstanceRequest(ctx context.Context, request []byte) error {

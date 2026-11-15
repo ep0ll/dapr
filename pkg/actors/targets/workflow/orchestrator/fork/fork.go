@@ -37,6 +37,7 @@ type Options struct {
 	OverwriteInput             bool
 	Input                      *wrapperspb.StringValue
 	NewChildWorkflowInstanceID *string
+	PreserveTraceContext        bool
 
 	OldState *state.State
 }
@@ -52,6 +53,7 @@ type Fork struct {
 	overwriteInput             bool
 	input                      *wrapperspb.StringValue
 	newChildWorkflowInstanceID *string
+	preserveTraceContext        bool
 
 	unfinishedActivities     map[int32]*backend.HistoryEvent
 	activeTimers             map[int32]*backend.HistoryEvent
@@ -73,6 +75,7 @@ func New(opts Options) *Fork {
 		overwriteInput:             opts.OverwriteInput,
 		input:                      opts.Input,
 		newChildWorkflowInstanceID: opts.NewChildWorkflowInstanceID,
+		preserveTraceContext:        opts.PreserveTraceContext,
 		unfinishedActivities:       make(map[int32]*backend.HistoryEvent),
 		activeTimers:               make(map[int32]*backend.HistoryEvent),
 		unfinishedChildWorkflows:   make(map[int32]*backend.HistoryEvent),
@@ -128,6 +131,12 @@ func (f *Fork) Build() (*state.State, error) {
 	// workflow can continue lineage forwarding to its own children
 	if f.oldState.IncomingHistory != nil {
 		f.newState.SetIncomingHistory(f.oldState.IncomingHistory)
+	}
+
+	// Every rerun receives its own workflow span. By default it also starts a
+	// new trace; the opt-in keeps the source traceparent as the parent context.
+	if err := setRerunTraceContext(f.newState, f.preserveTraceContext); err != nil {
+		return nil, fmt.Errorf("failed to initialize trace context for rerun: %w", err)
 	}
 
 	return f.newState, nil
